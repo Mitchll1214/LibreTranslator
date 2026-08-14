@@ -23,71 +23,86 @@
 export async function onRequestPost(context) {
     const { request, env } = context;
 
-    // 1) 服务端环境变量校验
-    const apiBase = env.DEEPLX_API_URL || env.REACT_APP_DEEPLX_API_URL;
-    if (!apiBase) {
-        return new Response(
-            JSON.stringify({ code: 500, message: 'Server DEEPLX_API_URL is not configured.' }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
-        );
-    }
+    try {
+        // 1) 服务端环境变量校验
+        const apiBase = env.DEEPLX_API_URL || env.REACT_APP_DEEPLX_API_URL;
+        if (!apiBase) {
+            return json({ code: 500, message: 'Server DEEPLX_API_URL is not configured.' }, 500);
+        }
 
-    // 2) 可选访问密码校验（防滥用）
-    const accessPassword = env.DEEPLX_ACCESS_PASSWORD;
-    if (accessPassword) {
-        const provided = request.headers.get('X-Auth-Password') || '';
-        if (provided !== accessPassword) {
-            return new Response(
-                JSON.stringify({ code: 401, message: 'Unauthorized.' }),
-                { status: 401, headers: { 'Content-Type': 'application/json' } }
+        // 2) 可选访问密码校验（防滥用）
+        const accessPassword = env.DEEPLX_ACCESS_PASSWORD;
+        if (accessPassword) {
+            const provided = request.headers.get('X-Auth-Password') || '';
+            if (provided !== accessPassword) {
+                return json({ code: 401, message: 'Unauthorized.' }, 401);
+            }
+        }
+
+        // 3) 转发体：透传前端 JSON body（含 text / target_lang / source_lang）
+        let payload;
+        try {
+            payload = await request.json();
+        } catch (e) {
+            return json({ code: 400, message: 'Invalid JSON body.' }, 400);
+        }
+
+        // 4) 构造上游 URL：兼容「已含 /translate」与「不含」两种配置
+        const base = apiBase.replace(/\/+$/, '');   // 去掉结尾多余的斜杠
+        const apiUrl = base.endsWith('/translate') ? base : `${base}/translate`;
+        const token = env.DEEPLX_API_TOKEN;
+        const upstreamUrl = token ? `${apiUrl}?token=${token}` : apiUrl;
+
+        // 5) 转发请求
+        let upstream;
+        try {
+            upstream = await fetch(upstreamUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        } catch (e) {
+            return json(
+                { code: 502, message: 'Upstream request failed: ' + (e && e.message ? e.message : String(e)) },
+                502
             );
         }
-    }
 
-    // 3) 转发体：透传前端 JSON body（含 text / target_lang / source_lang）
-    let payload;
-    try {
-        payload = await request.json();
+        // 6) 返回上游响应。无论上游返回什么（JSON / 文本 / 空），
+        //    都包装成前端可解析的 JSON，避免前端解析崩溃。
+        const upstreamText = await upstream.text();
+        // 尝试按 JSON 透传；若上游返回非 JSON（如 HTML 错误页），转成带 code 的 JSON
+        let upstreamData;
+        try {
+            upstreamData = JSON.parse(upstreamText);
+        } catch (e) {
+            return json(
+                { code: 502, upstreamStatus: upstream.status, message: 'Upstream returned non-JSON.' },
+                502
+            );
+        }
+        return json(upstreamData, upstream.status || 200);
     } catch (e) {
-        return new Response(
-            JSON.stringify({ code: 400, message: 'Invalid JSON body.' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
+        // 兜底：任何未捕获异常都转成 JSON，前端不会因解析崩溃
+        return json(
+            { code: 500, message: 'Proxy internal error: ' + (e && e.message ? e.message : String(e)) },
+            500
         );
     }
+}
 
-    // 4) 构造上游 URL：兼容「已含 /translate」与「不含」两种配置
-    const base = apiBase.replace(/\/+$/, '');   // 去掉结尾多余的斜杠
-    const apiUrl = /\/translate$/i.test(base) ? base : `${base}/translate`;
-    const token = env.DEEPLX_API_TOKEN;
-    const upstreamUrl = token ? `${apiUrl}?token=${token}` : apiUrl;
-
-    // 5) 转发请求
-    let upstream;
-    try {
-        upstream = await fetch(upstreamUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-    } catch (e) {
-        return new Response(
-            JSON.stringify({ code: 502, message: 'Upstream request failed.' }),
-            { status: 502, headers: { 'Content-Type': 'application/json' } }
-        );
-    }
-
-    // 6) 原样返回上游 JSON（code / data / detected_language 等字段透传）
-    const upstreamText = await upstream.text();
-    return new Response(upstreamText, {
-        status: upstream.status,
+/* 统一 JSON 响应构造 */
+function json(obj, status = 200) {
+    return new Response(JSON.stringify(obj), {
+        status,
         headers: { 'Content-Type': 'application/json' },
     });
 }
 
 /* 非 POST 请求返回 405 */
 export async function onRequest(context) {
-    return new Response(
-        JSON.stringify({ code: 405, message: 'Method Not Allowed. Use POST /api/translate.' }),
-        { status: 405, headers: { 'Content-Type': 'application/json' } }
+    return json(
+        { code: 405, message: 'Method Not Allowed. Use POST /api/translate.' },
+        405
     );
 }

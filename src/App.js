@@ -93,7 +93,18 @@ const App = () => {
                 body: JSON.stringify(body)
             });
 
-            const data = await response.json();
+            // 防御性解析：先读原始文本，再尝试 JSON.parse，
+            // 避免代理返回空 body / HTML 错误页导致 json() 抛错
+            const rawText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (parseError) {
+                console.error('翻译接口返回非 JSON 响应:', response.status, rawText.slice(0, 500));
+                setMessage(t('translationError'));
+                setIsError(true);
+                return;
+            }
 
             if (data.code === 200) {
                 setTranslatedText(data.data);

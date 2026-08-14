@@ -11,7 +11,7 @@ const App = () => {
     const [text, setText] = useState('');
     const [translatedText, setTranslatedText] = useState('');
     const [sourceLang, setSourceLang] = useState('AUTO');
-    const [targetLang, setTargetLang] = useState('EN');
+    const [targetLang, setTargetLang] = useState('ZH');
     const [inputCharCount, setInputCharCount] = useState(0);
     const [outputCharCount, setOutputCharCount] = useState(0);
     const [message, setMessage] = useState('');
@@ -79,7 +79,13 @@ const App = () => {
                 body.source_lang = sourceLang;
             }
 
-            const response = await fetch(`${process.env.REACT_APP_DEEPLX_API_URL}/translate?token=${process.env.REACT_APP_API_TOKEN}`, {
+            // 仅当配置了 REACT_APP_API_TOKEN 时才追加 token 参数；
+            // 使用公共 deeplx 端点（key 在路径中）时不需要该参数
+            const apiUrl = `${process.env.REACT_APP_DEEPLX_API_URL}/translate`;
+            const token = process.env.REACT_APP_API_TOKEN;
+            const requestUrl = token ? `${apiUrl}?token=${token}` : apiUrl;
+
+            const response = await fetch(requestUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -79,13 +79,9 @@ const App = () => {
                 body.source_lang = sourceLang;
             }
 
-            // 仅当配置了 REACT_APP_API_TOKEN 时才追加 token 参数；
-            // 使用公共 deeplx 端点（key 在路径中）时不需要该参数
-            const apiUrl = `${process.env.REACT_APP_DEEPLX_API_URL}/translate`;
-            const token = process.env.REACT_APP_API_TOKEN;
-            const requestUrl = token ? `${apiUrl}?token=${token}` : apiUrl;
-
-            const response = await fetch(requestUrl, {
+            // 同域代理：请求由 CF Pages Function（functions/api/translate.js）
+            // 转发到 DeepLx API，API key 只存在于服务端环境变量，不暴露给浏览器
+            const response = await fetch('/api/translate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

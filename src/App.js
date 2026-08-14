@@ -485,7 +485,7 @@ const App = () => {
                 </div>
             </div>
             
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="translate-wrap">
                 <button 
                     onClick={handleTranslate} 
                     disabled={loading || !text.trim()} 
@@ -534,7 +534,7 @@ const App = () => {
                             </button>
                         </>
                     ) : (
-                        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                        <div className="history-empty">
                             {t('noHistory')}
                         </div>
                     )}

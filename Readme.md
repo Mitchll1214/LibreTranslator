@@ -1,70 +1,77 @@
 # LibreTranslator
 
-LibreTranslator 是一个基于 React 的翻译工具，利用 DeepLx API 提供快速和准确的翻译服务。用户可以选择源语言和目标语言，输入文本并获取翻译结果。
+基于 React 的自由翻译工具，部署于 **Cloudflare Pages**，利用 DeepLx API 提供翻译服务。
 
-### 功能
+## 安全架构
 
-- 支持多种语言的翻译
-- 友好的用户界面（待完善）
+```
+浏览器 (你的站点 /)
+   │  只请求本站 /api/translate，永不接触 API key
+   ▼
+CF Pages Function (functions/api/translate.js)
+   │  服务端读取环境变量 DEEPLX_API_URL（key 藏在服务端）
+   ▼
+DeepLx API (https://api.deeplx.org/<your-key>/translate)
+```
 
-### 技术栈
+- **API key 永不暴露给浏览器**：前端只调用同域 `/api/translate`，key 仅存在于服务端环境变量，构建产物中不含任何 key。
+- **可选的防滥用密码**：配置 `DEEPLX_ACCESS_PASSWORD` 后，任何不带正确 `X-Auth-Password` 头的请求都会被代理拒绝（401），防止他人发现接口后盗用你的 key 额度。
 
-- **前端**: React
-- **样式**: CSS
-- **API**: DeepLx API
+## 功能
 
-### 部署
+- 多语言互译（40+ 语言，自动检测源语言）
+- 自动翻译（输入防抖 700ms）与手动翻译（Ctrl+Enter）
+- 语音朗读、一键复制、翻译历史（localStorage，最多 50 条）
+- 明暗主题自适应（跟随系统）
+- 可选访问密码（页面级 + 接口级双重防护）
+- 多语言 UI（中文 / English / Deutsch）
 
-#### 1、使用 Cloudflare Pages 部署
+## 部署到 Cloudflare Pages
 
-1. Fork 本仓库。
-2. 登录到 [Cloudflare](https://www.cloudflare.com/) ，在 Cloudflare Dashboard 中，选择 "Pages"。
-3. 点击 "Create a Project"。
-4. 连接到您的 GitHub 存储库，并选择该项目。
-5. 在 "Configure your build" 步骤中，使用以下设置：
-   - **Framework preset**: 
+1. **Fork / 推送本仓库到 GitHub**。
+2. 登录 [Cloudflare](https://www.cloudflare.com/) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**，选择本仓库。
+3. 构建设置：
+   - **Framework preset**: Create React App
    - **Build command**: `npm run build`
    - **Build directory**: `build`
-6. 点击 "Save and Deploy"。
+4. 在 **Settings → Environment variables** 配置环境变量（见下）。
+5. **Save and Deploy**。`functions/` 目录会被 Cloudflare Pages 自动识别为 Pages Functions，无需额外配置。
 
-#### 2、使用 Vercel 部署
+## 环境变量配置（安全要点）
 
-1. Fork 本仓库。
-2. 登录到 Vercel，点击 "New Project"。
-3. 连接到您的 GitHub 存储库，并选择该项目。
-4. Vercel 会自动检测到您使用的是 React 项目。您可以使用默认设置。
-5. 点击 "Deploy"。
+> ⚠️ **绝不要用 `REACT_APP_` 前缀存放 API key 或密码**——`REACT_APP_` 前缀的变量会在构建时被 CRA 内联进前端 JS bundle，任何访客都能在浏览器源码里看到。必须用下面的非 `REACT_APP_` 名称，它们只存在于服务端。
 
-#### 3、使用腾讯 EdgeOne Pages 部署
+| 变量名 | 必填 | 说明 |
+| --- | --- | --- |
+| `DEEPLX_API_URL` | ✅ | DeepLx 接口地址。可直接填完整 translate 端点，也可填根地址（函数自动补 `/translate`）:<br>· `https://api.deeplx.org/<your-key>/translate`<br>· `https://api.deeplx.org/<your-key>` |
+| `DEEPLX_API_TOKEN` | ❌ | 仅自建 deeplx 需要 token 鉴权时填写 |
+| `DEEPLX_ACCESS_PASSWORD` | ❌ | 防滥用访问密码。配置后前端必须携带正确密码才能调用翻译接口（推荐开启） |
+| `REACT_APP_PASSWORD` | ❌ | 页面访问密码（可选，页面级门禁；注意它会被内联进前端，仅作弱保护） |
 
-您也可以通过 [腾讯 EdgeOne Pages](https://edgeone.ai/pages) 一键部署 LibreTranslator：
+### 推荐的完整配置
 
-[![Use EdgeOne Pages to deploy](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Fbestzwei%2FLibreTranslator)
+| 变量 | 值 |
+| --- | --- |
+| `DEEPLX_API_URL` | `https://api.deeplx.org/你的key`（或含 `/translate`） |
+| `DEEPLX_ACCESS_PASSWORD` | 一个随机强密码，与 `REACT_APP_PASSWORD` 相同 |
+| `REACT_APP_PASSWORD` | 同一个随机强密码 |
 
-点击上方按钮即可在 EdgeOne Pages 部署本项目。  
-您可以在部署控制台中根据需要调整构建设置和环境变量。
+这样部署后：访问者需要先通过页面密码门禁，之后的翻译请求由代理校验同一密码后才转发到 DeepLx——即使 `/api/translate` 被发现，没有密码也无法盗用。
 
-#### 所有部署方式都要配置环境变量
+## 本地开发
 
-1. **REACT_APP_DEEPLX_API_URL**: `https://api.deeplx.org/<api-key>`  ，不带 `/translate`
+```bash
+npm install
+npm start
+```
 
-   用于存储 DeepLx API 的 URL，以便在请求翻译时使用。`<api-key> `可以从 https://connect.linux.do/ 获取。
+本地开发时如需真实翻译，可在 `.env` 中临时配置 `REACT_APP_DEEPLX_API_URL`（仅开发用；生产请用服务端环境变量）。
 
-   或者你是Pro用户，参考 [DeepLx文档 ](https://deeplx.owo.network/endpoints/pro.html)使用 `/v1` 请求 ，`https://api.deeplx.org/v1`
+## 说明
 
-2. **REACT_APP_PASSWORD（可选）**: 访问密码
+- 免费 deeplx 公共端点的 key 可从 [connect.linux.do](https://connect.linux.do/) 获取。
+- DeepLx Pro 用户可参考 [DeepLx 文档](https://deeplx.owo.network/endpoints/pro.html) 使用 `/v1` 端点。
 
-   用于存储访问口令，限制其他人使用你部署的翻译网页。
+## 贡献
 
-3. **NODE_OPTIONS**:`--openssl-legacy-provider`   
-
-   这个变量用于配置 Node.js 的选项，通常用于解决某些依赖包的兼容性问题，不设置则可能部署失败。
-
-4. **REACT_APP_API_TOKEN（可选）**：按需修改，如果你是**自建的DeepLx服务**，参考请求链接是 `REACT_APP_DEEPLX_API_URL/translate?token=REACT_APP_API_TOKEN`，填写这两个环境变量。
-
-
----
-
-### 贡献
-
-欢迎任何形式的贡献！请提交问题或拉取请求。
+欢迎提交 Issue 或 PR。

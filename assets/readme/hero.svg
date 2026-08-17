@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340"
      role="img" aria-labelledby="title desc">
-  <title id="title">LibreTranslator — 零 API key 的免费在线翻译</title>
-  <desc id="desc">LibreTranslator 标题与翻译流程示意图：源语言文本经转换箭头变为目标语言，标注无需 API key。</desc>
+  <title id="title">Mitchll LibreTranslator — 零 API key 的免费在线翻译</title>
+  <desc id="desc">Mitchll LibreTranslator 标题与翻译流程示意图：源语言文本经转换箭头变为目标语言，无需 API key。</desc>
 
   <defs>
     <linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1">

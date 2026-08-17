@@ -199,6 +199,9 @@ button {
 }
 
 .app-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
     font-family: var(--font-display);
     font-size: var(--text-2xl);
     font-weight: 800;
@@ -206,11 +209,21 @@ button {
     line-height: 1.1;
     color: var(--color-ink);
     margin: 0;
+    white-space: nowrap;
 }
 
-/* the brand dot — the single accent mark on the header */
-.app-title::first-letter {
+/* brand mark — translation-arrow glyph, echoes the favicon */
+.app-title-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
     color: var(--color-accent);
+    background-color: var(--color-accent-wash);
+    border-radius: 10px;
+    border: 1px solid var(--color-accent-soft);
 }
 
 .app-controls {
@@ -1001,6 +1014,13 @@ textarea::placeholder {
         flex-direction: column;
         align-items: stretch;
         gap: var(--space-md);
+    }
+
+    /* 窄屏标题允许换行，避免溢出 */
+    .app-title {
+        white-space: normal;
+        font-size: var(--text-xl);
+        flex-wrap: wrap;
     }
 
     .app-controls {

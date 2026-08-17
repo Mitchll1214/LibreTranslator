@@ -357,7 +357,7 @@ const App = () => {
     if (!isAuthenticated) {
         return (
             <div className="password-container">
-                <h1>LibreTranslator</h1>
+                <h1>Mitchll LibreTranslator</h1>
                 <input
                     type="password"
                     value={password}
@@ -378,7 +378,10 @@ const App = () => {
     return (
         <div className="container">
             <div className="app-header">
-                <h1 className="app-title">LibreTranslator</h1>
+                <h1 className="app-title">
+                    <span className="app-title-mark" aria-hidden="true"><Icon name="swap" size={20} /></span>
+                    <span>Mitchll LibreTranslator</span>
+                </h1>
                 <div className="app-controls">
                     <div className="language-switcher">
                         <label>Lang:</label>
@@ -545,7 +548,7 @@ const App = () => {
             )}
             
             <footer className="footer">
-                <span className="footer-copyright">© {new Date().getFullYear()} LibreTranslator</span>
+                <span className="footer-copyright">© {new Date().getFullYear()} Mitchll LibreTranslator</span>
                 <span className="footer-sep" aria-hidden="true">·</span>
                 <a href="https://github.com/Mitchll1214/LibreTranslator" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
             </footer>

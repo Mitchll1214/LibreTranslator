@@ -1,7 +1,7 @@
-# LibreTranslator
+# Mitchll LibreTranslator
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="LibreTranslator——零 API key 的免费在线翻译，部署即用，无需任何密钥">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Mitchll LibreTranslator——零 API key 的免费在线翻译，部署即用，无需任何密钥">
 </p>
 
 **零 API key 的免费在线翻译**。部署到 Cloudflare Pages 即可使用，前端零成本调用 Google 免费翻译端点，无需注册、无需任何密钥。

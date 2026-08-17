@@ -522,8 +522,9 @@ const App = () => {
             )}
             
             <footer className="footer">
-                <a href="https://github.com/bestZwei/LibreTranslator" target="_blank" rel="noopener noreferrer">GitHub</a>
-                <span> | {t('poweredBy')}</span>
+                <span className="footer-copyright">© {new Date().getFullYear()} LibreTranslator</span>
+                <span className="footer-sep" aria-hidden="true">·</span>
+                <a href="https://github.com/Mitchll1214/LibreTranslator" target="_blank" rel="noopener noreferrer" className="footer-link">GitHub</a>
             </footer>
             
             {/* History Panel */}

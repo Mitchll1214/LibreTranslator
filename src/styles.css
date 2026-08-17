@@ -27,6 +27,7 @@
     --color-accent-ink: #0c1a24;               /* text on accent fill */
     --color-accent-soft: #3f7f96;              /* accent × rule mix for borders */
     --color-accent-wash: rgba(92, 200, 232, 0.12);  /* accent 12% on paper-2 */
+    --color-accent-wash-soft: rgba(92, 200, 232, 0.07); /* accent 7% wash (input focus) */
     --color-accent-glow: rgba(92, 200, 232, 0.10);  /* radial hint, body top */
     --color-focus:      #7ad4f0;
 
@@ -104,6 +105,7 @@
         --color-accent-ink: #f7fafc;
         --color-accent-soft: #7ba6c9;
         --color-accent-wash: rgba(22, 120, 214, 0.10);
+        --color-accent-wash-soft: rgba(22, 120, 214, 0.06);
         --color-accent-glow: rgba(22, 120, 214, 0.06);
         --color-focus:      #3a93e0;
 
@@ -149,10 +151,13 @@ body {
     background-color: var(--color-paper);
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
-    /* one quiet radial hint of the accent at the top — not a gradient hero */
+    /* quiet dual ambient glows — top centre + upper right.
+       Subtle depth, never a gradient hero. */
     background-image:
-        radial-gradient(900px 420px at 50% -120px, var(--color-accent-glow), transparent 70%);
+        radial-gradient(900px 420px at 50% -120px, var(--color-accent-glow), transparent 70%),
+        radial-gradient(600px 300px at 85% -80px, var(--color-accent-glow), transparent 70%);
     background-repeat: no-repeat;
+    background-attachment: fixed;
     transition: background-color var(--dur-mid) var(--ease-out);
 }
 
@@ -212,6 +217,14 @@ button {
     display: flex;
     align-items: center;
     gap: var(--space-lg);
+}
+
+/* ----------------------- inline SVG icons -------------------------- */
+.icon {
+    display: inline-block;
+    vertical-align: -0.125em;
+    flex: none;
+    color: currentColor;
 }
 
 /* ----------------------- language switcher ------------------------ */
@@ -535,6 +548,7 @@ textarea {
 
 textarea:focus {
     outline: none;
+    background-color: var(--color-accent-wash-soft);
 }
 
 textarea::placeholder {

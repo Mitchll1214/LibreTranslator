@@ -6,6 +6,25 @@ const sourceLanguages = ['AUTO', 'ZH', 'AR', 'BG', 'CS', 'DA', 'DE', 'EL', 'EN',
 
 const targetLanguages = ['ZH', 'ZH-HANS', 'ZH-HANT', 'AR', 'BG', 'CS', 'DA', 'DE', 'EL', 'EN', 'EN-GB', 'EN-US', 'ES', 'ET', 'FI', 'FR', 'HU', 'ID', 'IT', 'JA', 'KO', 'LT', 'LV', 'NB', 'NL', 'PL', 'PT', 'PT-BR', 'PT-PT', 'RO', 'RU', 'SK', 'SL', 'SV', 'TR', 'UK'];
 
+/* 内联 SVG 图标（Lucide 风格，stroke=currentColor，跟随主题色）
+ * 避免用 emoji 作功能图标（跨平台样式不一致） */
+const Icon = ({ name, size = 16, className = '' }) => {
+    const paths = {
+        history: <path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" />,
+        speaker: <path d="M11 5L6 9H2v6h4l5 4V5z" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />,
+        x: <path d="M18 6L6 18" /><path d="M6 6l12 12" />,
+        swap: <path d="M17 1l4 4-4 4" /><path d="M3 5h18" /><path d="M7 23l-4-4 4-4" /><path d="M21 19H3" />,
+        translate: <path d="M4 5h7" /><path d="M9 3v2c0 4.97-1 8-4 10" /><path d="M5 9c0 4 2 7 6 9" /><path d="M14 5l5 14" /><path d="M12 11h7" />,
+    };
+    return (
+        <svg className={`icon ${className}`} width={size} height={size} viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+             aria-hidden="true" focusable="false">
+            {paths[name]}
+        </svg>
+    );
+};
+
 const App = () => {
     const { t, i18n } = useTranslation();
     const [text, setText] = useState('');
@@ -388,7 +407,7 @@ const App = () => {
                     onClick={() => setHistoryOpen(true)}
                     title={t('history')}
                 >
-                    <span className="feature-icon">📜</span> {t('history')}
+                    <span className="feature-icon"><Icon name="history" /></span> {t('history')}
                 </button>
                 {/* Additional feature buttons could be added here */}
             </div>
@@ -401,7 +420,7 @@ const App = () => {
                         </option>
                     ))}
                 </select>
-                <button onClick={handleSwapLanguages} className="swap-button" title={t('swapLanguages')}>⇄</button>
+                <button onClick={handleSwapLanguages} className="swap-button" title={t('swapLanguages')} aria-label={t('swapLanguages')}><Icon name="swap" size={18} /></button>
                 <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
                     {targetLanguages.map(langCode => (
                         <option key={langCode} value={langCode}>
@@ -426,17 +445,19 @@ const App = () => {
                                 className="action-button" 
                                 onClick={() => handleSpeak(text, detectedLanguage || sourceLang)}
                                 title={t('speak')}
+                                aria-label={t('speak')}
                                 disabled={!text.trim()}
                             >
-                                🔊
+                                <Icon name="speaker" size={15} />
                             </button>
                             <button 
                                 className="action-button" 
                                 onClick={() => clearText('input')} 
                                 title={t('clearText')}
+                                aria-label={t('clearText')}
                                 disabled={!text.trim()}
                             >
-                                ✕
+                                <Icon name="x" size={15} />
                             </button>
                         </div>
                     </div>
@@ -471,17 +492,19 @@ const App = () => {
                                 className="action-button" 
                                 onClick={() => handleSpeak(translatedText, targetLang)}
                                 title={t('speak')}
+                                aria-label={t('speak')}
                                 disabled={!translatedText.trim()}
                             >
-                                🔊
+                                <Icon name="speaker" size={15} />
                             </button>
                             <button 
                                 className="action-button" 
                                 onClick={() => clearText('output')}
                                 title={t('clearText')}
+                                aria-label={t('clearText')}
                                 disabled={!translatedText.trim()}
                             >
-                                ✕
+                                <Icon name="x" size={15} />
                             </button>
                         </div>
                     </div>
@@ -510,7 +533,7 @@ const App = () => {
                     disabled={loading || !text.trim()} 
                     className="translate-button"
                 >
-                    <span className="translate-button-icon">🔄</span>
+                    <span className="translate-button-icon"><Icon name="translate" size={17} /></span>
                     {loading ? t('translating') : t('translate')}
                 </button>
             </div>

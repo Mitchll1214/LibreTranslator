@@ -371,7 +371,7 @@ button {
 }
 
 .feature-button:active {
-    transform: translateY(0);
+    transform: translateY(-1px) scale(0.96);
 }
 
 .feature-icon {
@@ -425,7 +425,7 @@ button {
 }
 
 .swap-button:active {
-    transform: rotate(180deg) scale(0.94);
+    transform: rotate(180deg) scale(0.96);
 }
 
 .swap-button:disabled {
@@ -524,7 +524,7 @@ button {
 }
 
 .action-button:active:not(:disabled) {
-    transform: scale(0.92);
+    transform: scale(0.96);
 }
 
 .action-button:disabled {
@@ -592,7 +592,7 @@ textarea::placeholder {
 }
 
 .copy-button:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: scale(0.96);
 }
 
 .copy-button:disabled {
@@ -636,7 +636,7 @@ textarea::placeholder {
 }
 
 .translate-button:active:not(:disabled) {
-    transform: translateY(1px);
+    transform: translateY(1px) scale(0.96);
     box-shadow: none;
     filter: brightness(0.96);
     transition-duration: var(--dur-micro);
@@ -822,7 +822,7 @@ textarea::placeholder {
 }
 
 .password-container button:active {
-    transform: translateY(1px);
+    transform: translateY(1px) scale(0.96);
     box-shadow: none;
     filter: brightness(0.96);
     transition-duration: var(--dur-micro);
@@ -897,7 +897,7 @@ textarea::placeholder {
 }
 
 .close-history:active {
-    transform: scale(0.92);
+    transform: scale(0.96);
 }
 
 .history-items {

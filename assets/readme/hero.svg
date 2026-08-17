@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340"
+     role="img" aria-labelledby="title desc">
+  <title id="title">LibreTranslator — 零 API key 的免费在线翻译</title>
+  <desc id="desc">LibreTranslator 标题与翻译流程示意图：源语言文本经转换箭头变为目标语言，标注无需 API key。</desc>
+
+  <defs>
+    <linearGradient id="hero-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22272f"/>
+      <stop offset="1" stop-color="#15181e"/>
+    </linearGradient>
+    <linearGradient id="accent-glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5cc8e8" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#5cc8e8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1200" height="340" rx="26" fill="url(#hero-bg)"/>
+  <rect x="0" y="0" width="560" height="340" fill="url(#accent-glow)"/>
+
+  <!-- 分类标签 -->
+  <g transform="translate(56 52)">
+    <rect x="0" y="0" width="150" height="34" rx="17" fill="none" stroke="#3f7f96" stroke-width="1.5"/>
+    <text x="75" y="22" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="15" fill="#5cc8e8">WEB TRANSLATOR</text>
+  </g>
+
+  <!-- 标题 -->
+  <g transform="translate(56 118)">
+    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="64" font-weight="800" fill="#eef1f6" letter-spacing="-1">Libre</text>
+    <text x="232" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+          font-size="64" font-weight="800" fill="#5cc8e8" letter-spacing="-1">Translator</text>
+  </g>
+
+  <!-- 描述 -->
+  <text x="56" y="196" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="24" fill="#c3cad6">零 API key 的免费在线翻译，部署即用，无需任何密钥。</text>
+
+  <!-- 翻译流程示意 -->
+  <g transform="translate(56 268)">
+    <!-- 源语言框 -->
+    <rect x="0" y="0" width="200" height="44" rx="10" fill="#2c313c" stroke="#454e5e" stroke-width="1.5"/>
+    <text x="100" y="28" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="17" fill="#c3cad6">ZH 源码</text>
+
+    <!-- 转换箭头 -->
+    <g transform="translate(230 10)">
+      <path d="M 0 12 L 56 12 M 40 2 L 56 12 L 40 22" fill="none" stroke="#5cc8e8" stroke-width="4"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 48 22 A 38 38 0 0 0 48 -2" fill="none" stroke="#5cc8e8" stroke-width="4"
+            stroke-linecap="round" stroke-dasharray="5 7"/>
+    </g>
+
+    <!-- 目标语言框 -->
+    <rect x="310" y="0" width="200" height="44" rx="10" fill="#2c313c" stroke="#5cc8e8" stroke-width="1.5"/>
+    <text x="410" y="28" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="17" fill="#5cc8e8">EN 目标语</text>
+
+    <!-- 零 key 标记 -->
+    <rect x="556" y="4" width="168" height="36" rx="18" fill="#5cc8e8"/>
+    <text x="640" y="27" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+          font-size="16" font-weight="700" fill="#0c1a24">NO API KEY</text>
+  </g>
+</svg>

@@ -80,7 +80,7 @@ const App = () => {
             }
 
             // 同域代理：请求由 CF Pages Function（functions/api/translate.js）
-            // 转发到 DeepLx API，API key 只存在于服务端环境变量，不暴露给浏览器
+            // 转发到 Google 免费翻译端点（或配置的自定义端点）。
             const headers = { 'Content-Type': 'application/json' };
             // 若页面配置了访问密码，则携带给代理做防滥用校验
             if (password) {

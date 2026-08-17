@@ -1,23 +1,25 @@
 # LibreTranslator
 
-基于 React 的自由翻译工具，部署于 **Cloudflare Pages**，利用**自建 DeepLX 服务**提供翻译。
+基于 React 的自由翻译工具，部署于 **Cloudflare Pages**，翻译走 **Google 免费翻译接口（gtx）**，无需任何 API key。
 
-## 安全架构
+## 架构
 
 ```
 浏览器 (你的站点 /)
-   │  只请求本站 /api/translate，永不接触 API key
+   │  只请求本站 /api/translate
    ▼
 CF Pages Function (functions/api/translate.js)
-   │  服务端读取环境变量 DEEPLX_API_URL（key 藏在服务端）
+   │  服务端转发到 Google 免费端点（解决浏览器跨域）
    ▼
-自建 DeepLX 服务 (https://deeplx.example.com/translate 或局域网 http://ip:1188/translate)
+Google Translate (translate.googleapis.com/translate_a/single?client=gtx)
 ```
 
-- **API key 永不暴露给浏览器**：前端只调用同域 `/api/translate`，key / token 仅存在于服务端环境变量，构建产物中不含任何 key。
-- **可选的防滥用密码**：配置 `DEEPLX_ACCESS_PASSWORD` 后，任何不带正确 `X-Auth-Password` 头的请求都会被代理拒绝（401），防止他人发现接口后盗用你的额度。
+- **无需 API key**：Google gtx 是公开免费端点，不暴露任何密钥。
+- **接口不暴露**：前端只调用同域 `/api/translate`，上游细节对浏览器完全隐藏。
+- **可选防滥用密码**：配置 `DEEPLX_ACCESS_PASSWORD` 后，任何不带正确 `X-Auth-Password` 头的请求都会被代理拒绝（401），防止他人刷你的接口。
+- **可自定义端点**：如需切换自建 DeepLX 或其他兼容服务，配置 `DEEPLX_API_URL` 即可（默认 Google gtx）。
 
-> **为什么自建？** `api.deeplx.org` 公共端点本身部署在 Cloudflare 后面，会拦截来自其他 Cloudflare 数据中心（Workers / Pages Functions）的出站请求（返回 403 挑战页），所以"CF 服务端转发到 api.deeplx.org"不可行。自建 DeepLX 后，你的站点直连你自己的服务，不再有这层拦截，key 也完全私有。
+> **为什么不用 deprecated 的 api.deeplx.org？** 该公共端点部署在 Cloudflare 后面，会拦截来自其他 Cloudflare 数据中心（Pages Functions）的出站请求（403 挑战页），不可行。Google 基础设施不拦截 CF 出站，且零 key、响应为标准 JSON。
 
 ## 功能
 
@@ -45,20 +47,19 @@ CF Pages Function (functions/api/translate.js)
 
 | 变量名 | 必填 | 说明 |
 | --- | --- | --- |
-| `DEEPLX_API_URL` | ✅ | 你的自建 DeepLX 地址。可直接填完整 translate 端点，也可填根地址（函数自动补 `/translate`）:<br>· `https://deeplx.example.com/translate`（或加 `?token=xxx`）<br>· `https://deeplx.example.com`<br>· `http://192.168.1.10:1188/translate`（局域网自建，非 https 也可） |
-| `DEEPLX_API_TOKEN` | ❌ | 自建 DeepLX 需要 token 鉴权时填写 |
+| `DEEPLX_API_URL` | ❌ | **可选**。默认使用 Google 免费翻译端点，无需配置。仅当你想切换自建 DeepLX / 其他兼容服务时填写其地址（含 `/translate` 或不含均可，函数自动补全） |
+| `DEEPLX_API_TOKEN` | ❌ | 自定义端点需要 token 鉴权时填写（Google gtx 不需要） |
 | `DEEPLX_ACCESS_PASSWORD` | ❌ | 防滥用访问密码。配置后前端必须携带正确密码才能调用翻译接口（推荐开启） |
 | `REACT_APP_PASSWORD` | ❌ | 页面访问密码（可选，页面级门禁；注意它会被内联进前端，仅作弱保护） |
 
-### 推荐的完整配置
+### 推荐的完整配置（默认 Google gtx）
 
 | 变量 | 值 |
 | --- | --- |
-| `DEEPLX_API_URL` | `https://deeplx.example.com/translate`（你的自建地址） |
 | `DEEPLX_ACCESS_PASSWORD` | 一个随机强密码，与 `REACT_APP_PASSWORD` 相同 |
 | `REACT_APP_PASSWORD` | 同一个随机强密码 |
 
-这样部署后：访问者需要先通过页面密码门禁，之后的翻译请求由代理校验同一密码后才转发到你的 DeepLX——即使 `/api/translate` 被发现，没有密码也无法盗用。
+这样部署后：**无需任何翻译 API key**，直接可用 Google 免费翻译；访问者需要先通过页面密码门禁，之后的翻译请求由代理校验同一密码后才转发——即使 `/api/translate` 被发现，没有密码也无法刷接口。
 
 ## 本地开发
 
@@ -67,12 +68,13 @@ npm install
 npm start
 ```
 
-本地开发时，翻译请求同样走 `/api/translate` 代理：本地跑 `wrangler pages dev` 或部署后在 CF 控制台配置 `DEEPLX_API_URL`（不要用 `REACT_APP_` 前缀，见上）。
+本地开发时，翻译请求同样走 `/api/translate` 代理：本地跑 `wrangler pages dev` 即可（默认 Google 免费翻译，无需配置环境变量；如要自定义端点再配置 `DEEPLX_API_URL`）。
 
 ## 说明
 
-- **自建 DeepLX**：参考 [OwO-Network/DeepLX](https://github.com/OwO-Network/DeepLX) 在自有服务器 / VPS 上部署 DeepLX 服务，默认端口 `1188`。DeepL 的 API key 由你的 DeepLX 服务持有，不会出现在本项目的任何代码或构建产物中。
-- DeepL 官方 API key 可从 [DeepL API](https://www.deepl.com/pro-api) 获取（需要绑卡，DeepLX 免费版对高频有速率限制）。
+- **翻译端点**：默认调用 Google 免费翻译端点 `translate.googleapis.com/translate_a/single?client=gtx`，零 key、无注册、响应为标准 JSON。
+- **自定义端点**：如需切换到自建 DeepLX（[OwO-Network/DeepLX](https://github.com/OwO-Network/DeepLX)）或其他兼容 `/translate` 契约的服务，配置 `DEEPLX_API_URL` 即可，函数自动兼容「含/不含 `/translate`」与「`?token=`」。
+- **语言代码**：前端语言代码（`ZH`/`ZH-HANS`/`ZH-HANT`/`EN-GB`…）与 Google 代码（`zh-CN`/`zh-TW`/`en-GB`…）在代理内自动映射，检测到的源语言会回显到输入框头部。
 
 ## 贡献
 

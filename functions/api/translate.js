@@ -1,38 +1,175 @@
 /**
  * Cloudflare Pages Function — /api/translate
  *
- * 同域代理：把前端的翻译请求转发到自建 DeepLX 服务。
+ * 同域代理：把前端的翻译请求转发到 Google 免费翻译端点
+ * （translate.googleapis.com/translate_a/single?client=gtx），
+ * 解决浏览器跨域（CORS）问题，并对前端隐藏上游细节。
+ *
+ * 端点选择：
+ *  - 默认使用 Google gtx 免费公开端点（无需 key、标准 JSON、不拦截 CF 出站）。
+ *  - 可选：部署者可通过环境变量 DEEPLX_API_URL 指定自定义端点
+ *    （自建 DeepLX / 其他 /translate 兼容服务），此时按 DeepLX 契约
+ *    （{code,data}）转发，保持向后兼容。
  *
  * 安全模型：
- *  - DeepLX 的 API key / token 只存在于服务端环境变量中，
- *    浏览器永远只请求本站 /api/translate，看不到 key。
+ *  - 不配置 key：Google gtx 无需 key。若配置了自定义端点需要 token，
+ *    由 DEEPLX_API_TOKEN 携带（只存在于服务端）。
  *  - 可选 DEEPLX_ACCESS_PASSWORD：配置后，来自前端的请求必须带上
- *    匹配的密码（X-Auth-Password 头），否则返回 401。这是防止有人
- *    发现 /api/translate 后盗用你的 key 额度的主动防御。
+ *    匹配的密码（X-Auth-Password 头），否则返回 401。
  *
  * 服务端环境变量（CF Pages → Settings → Environment variables 配置。
- * 注意：不要用 REACT_APP_ 开头——那只会在构建时内联进前端 bundle，
- * 导致 key / 密码暴露）：
+ * 不要用 REACT_APP_ 开头——会被 CRA 内联进前端 bundle 而暴露）：
  *
- *   DEEPLX_API_URL（必填）— 自建 DeepLX 的 translate 端点或根地址均可：
- *       示例: https://deeplx.example.com/translate   （带 token 鉴权时加 ?token=xxx）
- *       示例: https://deeplx.example.com
- *       示例: http://192.168.1.10:1188/translate      （局域网自建，非 https 也可）
- *   DEEPLX_API_TOKEN（可选）— 自建 DeepLX 需要 token 鉴权时填写
+ *   DEEPLX_API_URL（可选）— 覆盖默认 Google gtx 端点为自定义端点。
+ *       示例: https://deeplx.example.com/translate（含 /translate 或不含均可）
+ *   DEEPLX_API_TOKEN（可选）— 自定义端点需要 token 鉴权时填写
  *   DEEPLX_ACCESS_PASSWORD（可选）— 前端访问密码，与页面密码一致
  */
+
+/* 应用语言代码 → Google 语言代码 */
+const toGoogleLang = {
+    AUTO: 'auto',
+    ZH: 'zh-CN', 'ZH-HANS': 'zh-CN', 'ZH-HANT': 'zh-TW',
+    EN: 'en', 'EN-GB': 'en-GB', 'EN-US': 'en',
+    AR: 'ar', BG: 'bg', CS: 'cs', DA: 'da', DE: 'de', EL: 'el',
+    ES: 'es', ET: 'et', FI: 'fi', FR: 'fr', HU: 'hu', ID: 'id',
+    IT: 'it', JA: 'ja', KO: 'ko', LT: 'lt', LV: 'lv', NB: 'nb',
+    NL: 'nl', PL: 'pl', PT: 'pt', 'PT-BR': 'pt-BR', 'PT-PT': 'pt-PT',
+    RO: 'ro', RU: 'ru', SK: 'sk', SL: 'sl', SV: 'sv', TR: 'tr', UK: 'uk',
+};
+
+/* Google 语言代码 → 应用语言代码（逆向，用于检测回显） */
+const fromGoogleLang = (() => {
+    const map = {
+        'zh-CN': 'ZH', 'zh-TW': 'ZH-HANT', 'zh': 'ZH',
+        'en-GB': 'EN-GB', 'en': 'EN', 'en-US': 'EN-US',
+        'pt-BR': 'PT-BR', 'pt-PT': 'PT-PT', 'pt': 'PT',
+        nb: 'NB', no: 'NB', de: 'DE', fr: 'FR', es: 'ES', it: 'IT',
+        ru: 'RU', ja: 'JA', ko: 'KO', ar: 'AR', pl: 'PL', tr: 'TR',
+        nl: 'NL', sv: 'SV', cs: 'CS', da: 'DA', fi: 'FI', hu: 'HU',
+        el: 'EL', ro: 'RO', uk: 'UK', bg: 'BG', id: 'ID', et: 'ET',
+        lt: 'LT', lv: 'LV', sk: 'SK', sl: 'SL',
+    };
+    return (g) => map[g] || g || '';
+})();
+
+/* 统一 JSON 响应构造 */
+function json(obj, status = 200) {
+    return new Response(JSON.stringify(obj), {
+        status,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+}
+
+/* Google gtx 调用（POST form-encoded，避免长文本撑爆 GET URL） */
+async function googleTranslate(payload) {
+    const src = toGoogleLang[payload.source_lang] || 'auto';
+    const tgt = toGoogleLang[payload.target_lang] || 'zh-CN';
+    const q = typeof payload.text === 'string' ? payload.text : String(payload.text || '');
+
+    const body = new URLSearchParams({
+        client: 'gtx',
+        sl: src,
+        tl: tgt,
+        dt: 't',
+        q,
+    });
+
+    const upstream = await fetch(
+        'https://translate.googleapis.com/translate_a/single',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0',
+            },
+            body,
+        }
+    );
+
+    const text = await upstream.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        throw new Error('Google endpoint returned non-JSON (status ' + upstream.status + ')');
+    }
+
+    // 先检查状态码（429/5xx 即便是 JSON 也是错误），再检查空翻译
+    if (!upstream.ok) {
+        throw new Error('Google endpoint error (status ' + upstream.status + ')');
+    }
+
+    // gtx 响应: [ [ [ "译文", "原文", null, null, 10 ], ... ], null, "detectedLang", ... ]
+    const segments = Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+    const translated = segments
+        .map((seg) => (Array.isArray(seg) && typeof seg[0] === 'string' ? seg[0] : ''))
+        .join('');
+    const detected = Array.isArray(data) && typeof data[2] === 'string' ? data[2] : '';
+
+    if (!translated.trim() && text.trim()) {
+        throw new Error('Google endpoint returned empty translation (status ' + upstream.status + ')');
+    }
+
+    return {
+        code: 200,
+        data: translated,
+        detected_language: fromGoogleLang(detected),
+        raw_detected: detected,
+    };
+}
+
+/* 自定义端点（DeepLX 契约）调用 */
+async function customTranslate(payload, env) {
+    const apiBase = env.DEEPLX_API_URL;
+    let upstreamUrl;
+    try {
+        upstreamUrl = new URL(apiBase);
+    } catch (e) {
+        throw new Error('Invalid DEEPLX_API_URL: ' + (e && e.message ? e.message : String(e)));
+    }
+    const path = upstreamUrl.pathname.replace(/\/+$/, '');
+    upstreamUrl.pathname = path.endsWith('/translate') ? path : path + '/translate';
+    if (!upstreamUrl.searchParams.has('token') && env.DEEPLX_API_TOKEN) {
+        upstreamUrl.searchParams.set('token', env.DEEPLX_API_TOKEN);
+    }
+
+    const body = { text: payload.text, target_lang: payload.target_lang };
+    if (payload.source_lang && payload.source_lang !== 'AUTO') {
+        body.source_lang = payload.source_lang;
+    }
+
+    const upstream = await fetch(upstreamUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    const text = await upstream.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        throw new Error(
+            'Upstream returned non-JSON (status ' + upstream.status + '): ' + text.slice(0, 200)
+        );
+    }
+    if (data.code !== 200) {
+        throw new Error('Upstream error: ' + (data.message || ('code ' + data.code)));
+    }
+    return {
+        code: 200,
+        data: data.data,
+        detected_language: data.detected_language || '',
+    };
+}
+
 export async function onRequestPost(context) {
     const { request, env } = context;
 
     try {
-        // 1) 服务端环境变量校验（只认 DEEPLX_API_URL，绝不用
-        //    REACT_APP_ 前缀——那会被 CRA 内联进前端 bundle）
-        const apiBase = env.DEEPLX_API_URL;
-        if (!apiBase) {
-            return json({ code: 500, message: 'Server DEEPLX_API_URL is not configured.' }, 500);
-        }
-
-        // 2) 可选访问密码校验（防滥用）
+        // 1) 可选访问密码校验（防滥用）
         const accessPassword = env.DEEPLX_ACCESS_PASSWORD;
         if (accessPassword) {
             const provided = request.headers.get('X-Auth-Password') || '';
@@ -41,96 +178,32 @@ export async function onRequestPost(context) {
             }
         }
 
-        // 3) 转发体：透传前端 JSON body（含 text / target_lang / source_lang）
+        // 2) 解析前端 payload
         let payload;
         try {
             payload = await request.json();
         } catch (e) {
             return json({ code: 400, message: 'Invalid JSON body.' }, 400);
         }
-
-        // 4) 构造上游 URL。用 URL 对象统一处理，兼容各种配置：
-        //    已含 /translate 或未含、已含 ?token= 或依赖 DEEPLX_API_TOKEN。
-        let upstreamUrl;
-        try {
-            upstreamUrl = new URL(apiBase);
-        } catch (e) {
-            return json(
-                { code: 500, message: 'Invalid DEEPLX_API_URL: ' + (e && e.message ? e.message : String(e)) },
-                500
-            );
+        if (!payload || typeof payload.text !== 'string' || !payload.text.trim()) {
+            return json({ code: 400, message: 'Missing text.' }, 400);
         }
-        // 仅当路径不以 /translate 结尾时才补（基于 pathname 判断，query 不影响；
-        // 先去掉尾部斜杠，避免 "/translate/" 被误判为未含而重复追加）
-        const path = upstreamUrl.pathname.replace(/\/+$/, '');
-        if (!path.endsWith('/translate')) {
-            upstreamUrl.pathname = path + '/translate';
+
+        // 3) 选择端点：配置了 DEEPLX_API_URL → 自定义；否则 Google gtx
+        let result;
+        if (env.DEEPLX_API_URL) {
+            result = await customTranslate(payload, env);
         } else {
-            upstreamUrl.pathname = path;
-        }
-        // token 单源：URL 自带 query 中的 token 优先，未带则用环境变量补
-        if (!upstreamUrl.searchParams.has('token') && env.DEEPLX_API_TOKEN) {
-            upstreamUrl.searchParams.set('token', env.DEEPLX_API_TOKEN);
+            result = await googleTranslate(payload);
         }
 
-        // 5) 转发请求。带上常规浏览器头，兼容对请求特征较敏感的上游。
-        let upstream;
-        try {
-            upstream = await fetch(upstreamUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json, text/plain, */*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
-                    'Cache-Control': 'no-cache',
-                },
-                body: JSON.stringify(payload),
-            });
-        } catch (e) {
-            return json(
-                { code: 502, message: 'Upstream request failed: ' + (e && e.message ? e.message : String(e)) },
-                502
-            );
-        }
-
-        // 6) 返回上游响应。无论上游返回什么（JSON / 文本 / 空），
-        //    都包装成前端可解析的 JSON，避免前端解析崩溃。
-        const upstreamText = await upstream.text();
-        // 尝试按 JSON 透传；若上游返回非 JSON（如 HTML 错误页），
-        // 转成带 code 的 JSON 并附上响应片段便于诊断
-        let upstreamData;
-        try {
-            upstreamData = JSON.parse(upstreamText);
-        } catch (e) {
-            return json(
-                {
-                    code: 502,
-                    upstreamStatus: upstream.status,
-                    message: 'Upstream returned non-JSON.',
-                    snippet: upstreamText.slice(0, 300),
-                },
-                502
-            );
-        }
-        // 6) 返回上游 JSON（含 code / data / detected_language 等字段透传），
-        //    status 原样透传。注意：204/304 等无 body 的响应会在上面
-        //    JSON.parse 失败，走 502 包装（行为安全，绝不给前端空 body）。
-        return json(upstreamData, upstream.status);
+        // 4) 返回统一契约 {code:200, data, detected_language}
+        return json(result);
     } catch (e) {
-        // 兜底：任何未捕获异常都转成 JSON，前端不会因解析崩溃
-        return json(
-            { code: 500, message: 'Proxy internal error: ' + (e && e.message ? e.message : String(e)) },
-            500
-        );
+        const msg = e && e.message ? e.message : String(e);
+        console.error('translate proxy error:', msg);
+        return json({ code: 500, message: msg }, 500);
     }
-}
-
-/* 统一 JSON 响应构造 */
-function json(obj, status = 200) {
-    return new Response(JSON.stringify(obj), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-    });
 }
 
 /* 非 POST 请求返回 405 */

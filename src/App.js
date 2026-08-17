@@ -415,8 +415,9 @@ const App = () => {
                 {/* Additional feature buttons could be added here */}
             </div>
             
-            <div className="language-selection">
-                <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
+            <div className="workspace">
+                <div className="language-selection">
+                    <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
                     {sourceLanguages.map(langCode => (
                         <option key={langCode} value={langCode}>
                             {langCode === 'AUTO' ? t('sourceLanguages.AUTO') : t(`sourceLanguages.${langCode}`)}
@@ -540,6 +541,7 @@ const App = () => {
                     {loading ? t('translating') : t('translate')}
                 </button>
             </div>
+            </div>{/* workspace */}
             
             {message && (
                 <div className={`message ${isError ? 'error' : 'success'}`}>

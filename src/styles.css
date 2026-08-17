@@ -21,6 +21,8 @@
     --color-muted:      #98a2b3;
     --color-rule:       #333a46;
     --color-rule-2:     #454e5e;
+    /* workspace panel — slightly elevated translucent surface */
+    --color-workspace:  rgba(39, 43, 52, 0.72);
 
     /* accent — cyan for this build */
     --color-accent:     #5cc8e8;
@@ -100,6 +102,8 @@
         --color-muted:      #6b7688;
         --color-rule:       #e2e5ea;
         --color-rule-2:     #cdd2da;
+        /* workspace panel — slightly elevated translucent surface */
+        --color-workspace:  rgba(255, 255, 255, 0.72);
 
         --color-accent:     #1678d6;
         --color-accent-ink: #f7fafc;
@@ -446,11 +450,52 @@ button {
     cursor: not-allowed;
 }
 
+/* -------------------------- workspace panel ----------------------- */
+.workspace {
+    position: relative;
+    background-color: var(--color-workspace);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-card);
+}
+
+.workspace .language-selection {
+    margin-bottom: var(--space-lg);
+}
+
 /* -------------------------- text areas ---------------------------- */
 .text-areas {
     display: flex;
     gap: var(--space-lg);
-    margin-bottom: var(--space-xl);
+    margin-bottom: var(--space-lg);
+    position: relative;
+}
+
+/* 翻译方向指示 — 桌面端在两个文本框间显示一个朝右的箭头 */
+@media (min-width: 49rem) {
+    .text-areas::after {
+        content: "→";
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 30px;
+        height: 30px;
+        z-index: 1;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--color-accent);
+        background-color: var(--color-paper-2);
+        border: 1px solid var(--color-rule-2);
+        border-radius: 50%;
+        box-shadow: var(--shadow-card);
+    }
 }
 
 .textarea-container {

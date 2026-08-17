@@ -53,12 +53,18 @@ export async function onRequestPost(context) {
         const token = env.DEEPLX_API_TOKEN;
         const upstreamUrl = token ? `${apiUrl}?token=${token}` : apiUrl;
 
-        // 5) 转发请求
+        // 5) 转发请求。带上常规浏览器头，降低被 Cloudflare 出站
+        //    防火墙按"无浏览器特征请求"误拦的概率。
         let upstream;
         try {
             upstream = await fetch(upstreamUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
+                    'Cache-Control': 'no-cache',
+                },
                 body: JSON.stringify(payload),
             });
         } catch (e) {
@@ -71,13 +77,19 @@ export async function onRequestPost(context) {
         // 6) 返回上游响应。无论上游返回什么（JSON / 文本 / 空），
         //    都包装成前端可解析的 JSON，避免前端解析崩溃。
         const upstreamText = await upstream.text();
-        // 尝试按 JSON 透传；若上游返回非 JSON（如 HTML 错误页），转成带 code 的 JSON
+        // 尝试按 JSON 透传；若上游返回非 JSON（如 HTML 错误页），
+        // 转成带 code 的 JSON 并附上响应片段便于诊断
         let upstreamData;
         try {
             upstreamData = JSON.parse(upstreamText);
         } catch (e) {
             return json(
-                { code: 502, upstreamStatus: upstream.status, message: 'Upstream returned non-JSON.' },
+                {
+                    code: 502,
+                    upstreamStatus: upstream.status,
+                    message: 'Upstream returned non-JSON.',
+                    snippet: upstreamText.slice(0, 300),
+                },
                 502
             );
         }

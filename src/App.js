@@ -120,8 +120,9 @@ const App = () => {
                     saveToHistory(text, data.data, sourceLang, targetLang);
                 }
             } else {
-                // 显示服务器返回的具体错误信息（如未配置环境变量等），便于定位
-                setMessage(data.message || t('translationFailed'));
+                // 显示服务器返回的具体错误信息（含诊断片段），便于定位
+                const errMsg = data.snippet ? `${data.message} ${data.snippet}` : data.message;
+                setMessage(errMsg || t('translationFailed'));
                 setIsError(true);
             }
 

@@ -41,6 +41,10 @@ const App = () => {
     const [autoTranslate, setAutoTranslate] = useState(true);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [history, setHistory] = useState([]);
+    // 点词查译：{ word: 源词, target: 单译结果 }
+    const [wordLookup, setWordLookup] = useState(null);
+    const wordTimerRef = useRef(null);
+    const wordLookupRef = useRef(null);
     const [detectedLanguage, setDetectedLanguage] = useState('');
     const [isComposing, setIsComposing] = useState(false);
     const translateTimerRef = useRef(null);
@@ -85,45 +89,40 @@ const App = () => {
         setHistory(prev => [newHistoryItem, ...prev].slice(0, 50)); // Keep only the last 50 items
     };
 
+    /* 公共翻译请求：整段与点词复用同一套 fetch + 解析逻辑 */
+    const translateText = useCallback(async (inputText, srcLang, tgtLang) => {
+        const body = { text: inputText, target_lang: tgtLang };
+        if (srcLang && srcLang !== 'AUTO') {
+            body.source_lang = srcLang;
+        }
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (password) {
+            headers['X-Auth-Password'] = password;
+        }
+
+        const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+        });
+
+        const rawText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseError) {
+            // 保留原始响应片段便于诊断，交由调用方处理
+            throw new Error('non-json:' + rawText.slice(0, 200));
+        }
+        return data;
+    }, [password]);
+
     const handleTranslate = useCallback(async () => {
         if (!text.trim()) return;
         setLoading(true);
         try {
-            const body = {
-                text: text,
-                target_lang: targetLang
-            };
-            
-            if (sourceLang !== 'AUTO') {
-                body.source_lang = sourceLang;
-            }
-
-            // 同域代理：请求由 CF Pages Function（functions/api/translate.js）
-            // 转发到 Google 免费翻译端点（或配置的自定义端点）。
-            const headers = { 'Content-Type': 'application/json' };
-            // 若页面配置了访问密码，则携带给代理做防滥用校验
-            if (password) {
-                headers['X-Auth-Password'] = password;
-            }
-
-            const response = await fetch('/api/translate', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body)
-            });
-
-            // 防御性解析：先读原始文本，再尝试 JSON.parse，
-            // 避免代理返回空 body / HTML 错误页导致 json() 抛错
-            const rawText = await response.text();
-            let data;
-            try {
-                data = JSON.parse(rawText);
-            } catch (parseError) {
-                console.error('翻译接口返回非 JSON 响应:', response.status, rawText.slice(0, 500));
-                setMessage(t('translationError'));
-                setIsError(true);
-                return;
-            }
+            const data = await translateText(text, sourceLang, targetLang);
 
             if (data.code === 200) {
                 setTranslatedText(data.data);
@@ -173,6 +172,47 @@ const App = () => {
     const handleTextChange = (e) => {
         setText(e.target.value);
         setInputCharCount(e.target.value.length);
+        // 文本变化时清除旧的点词释义与未决请求，并失效同词守卫
+        clearTimeout(wordTimerRef.current);
+        setWordLookup(null);
+        wordLookupRef.current = null;
+    };
+
+    /* textarea 自适应高度：内容增长时自动变高 */
+    const autoResize = (el) => {
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+    };
+
+    /* 光标所在单词提取 + 防抖单译 */
+    const handleWordSelect = (e) => {
+        const el = e.target;
+        const start = el.selectionStart;
+        const value = el.value || '';
+        if (!value.trim() || start === null) return;
+        /* 向前后扩展取当前词（空格/标点分隔） */
+        const before = value.slice(0, start);
+        const after = value.slice(start);
+        const leftMatch = before.match(/[\w\u00C0-\u024F\u4e00-\u9FFF]+$/);
+        const rightMatch = after.match(/^[\w\u00C0-\u024F\u4e00-\u9FFF]+/);
+        const word = (leftMatch ? leftMatch[0] : '') + (rightMatch ? rightMatch[0] : '');
+        if (!word) return;
+
+        clearTimeout(wordTimerRef.current);
+        /* 同一词重复选中不重复请求 */
+        if (wordLookupRef.current === word) return;
+        wordTimerRef.current = setTimeout(async () => {
+            try {
+                const data = await translateText(word, sourceLang, targetLang);
+                if (data && data.code === 200) {
+                    wordLookupRef.current = word;
+                    setWordLookup({ word, target: data.data });
+                }
+            } catch (err) {
+                /* 静默失败，不打扰用户 */
+            }
+        }, 400);
     };
 
     const handleComposition = (e) => {
@@ -195,6 +235,15 @@ const App = () => {
             handleTranslate();
         }
     };
+
+    /* 内容变化（输入/翻译/交换/历史载入/清空）后同步自适应高度 */
+    useEffect(() => {
+        autoResize(inputRef.current);
+        autoResize(outputRef.current);
+    }, [text, translatedText]);
+
+    /* 卸载时清理点词防抖定时器 */
+    useEffect(() => () => clearTimeout(wordTimerRef.current), []);
 
     useEffect(() => {
         // 首先尝试从localStorage获取用户之前选择的语言
@@ -469,9 +518,11 @@ const App = () => {
                         ref={inputRef}
                         value={text}
                         onChange={handleTextChange}
+                        onInput={(e) => autoResize(e.target)}
                         onCompositionStart={handleComposition}
                         onCompositionEnd={handleComposition}
                         onKeyDown={handleKeyDown}
+                        onSelect={handleWordSelect}
                         placeholder={t('inputPlaceholder')}
                     />
                     <div className="info-bar">
@@ -512,10 +563,23 @@ const App = () => {
                             </button>
                         </div>
                     </div>
+                    {wordLookup && (
+                        <div className="word-lookup" role="status" aria-live="polite">
+                            <span className="word-lookup-word">{wordLookup.word}</span>
+                            <span className="word-lookup-caret" aria-hidden="true">→</span>
+                            <span className="word-lookup-target">{wordLookup.target}</span>
+                            <button
+                                className="word-lookup-close"
+                                onClick={() => setWordLookup(null)}
+                                aria-label={t('clearText')}
+                            ><Icon name="x" size={12} /></button>
+                        </div>
+                    )}
                     <textarea
                         ref={outputRef}
                         value={translatedText}
                         onChange={handleOutputChange}
+                        onInput={(e) => autoResize(e.target)}
                         placeholder={t('outputPlaceholder')}
                     />
                     <div className="info-bar">

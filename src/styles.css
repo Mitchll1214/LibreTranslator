@@ -592,7 +592,8 @@ button {
 
 textarea {
     width: 100%;
-    height: 240px;
+    min-height: 240px;
+    height: auto;
     padding: var(--space-md);
     font-family: var(--font-body);
     font-size: var(--text-base);
@@ -601,6 +602,7 @@ textarea {
     background-color: transparent;
     border: none;
     resize: none;
+    overflow-y: hidden;
     transition: background-color var(--dur-short) var(--ease-out);
 }
 
@@ -611,6 +613,61 @@ textarea:focus {
 
 textarea::placeholder {
     color: var(--color-muted);
+}
+
+/* 点词释义条 — 光标取词后的单译结果 */
+.word-lookup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-md);
+    border-bottom: 1px solid var(--color-rule);
+    background-color: var(--color-accent-wash-soft);
+    font-size: var(--text-sm);
+    animation: msg-in var(--dur-short) var(--ease-out);
+}
+
+.word-lookup-word {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--color-accent);
+    white-space: nowrap;
+}
+
+.word-lookup-caret {
+    color: var(--color-muted);
+    font-weight: 600;
+    user-select: none;
+}
+
+.word-lookup-target {
+    color: var(--color-ink);
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.word-lookup-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition:
+        color var(--dur-short) var(--ease-out),
+        background-color var(--dur-short) var(--ease-out);
+}
+
+.word-lookup-close:hover {
+    color: var(--color-ink);
+    background-color: var(--color-rule);
 }
 
 .info-bar {
